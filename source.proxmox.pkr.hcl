@@ -57,10 +57,10 @@ source "proxmox-iso" "freebsd-14_1" {
 
   network_adapters {
     mac_address = var.network_mac_address
-    model    = "virtio"
-    bridge   = var.network_bridge
-    vlan_tag = var.network_vlan
-    firewall = false
+    model       = "virtio"
+    bridge      = var.network_bridge
+    vlan_tag    = var.network_vlan
+    firewall    = false
   }
 
   unmount_iso = true
