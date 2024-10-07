@@ -1,0 +1,89 @@
+if [ -e /dev/ada0 ]; then
+	DISK=ada0
+fi
+if [ -e /dev/da0 ]; then
+	DISK=da0
+fi
+if [ -e /dev/vtbd0 ]; then
+	DISK=vtbd0
+fi
+
+if [ -z $DISK ]; then
+	echo "ERROR: No disks found." >&2
+	exit 1
+fi
+
+export $DISK
+
+BSDINSTALL_DISTSITE="https://download.freebsd.org/releases/amd64/amd64/14.1-RELEASE/"
+DISTRIBUTIONS="base.txz kernel.txz"
+PARTITIONS="$DISK GPT { 2G freebsd-swap, auto freebsd-ufs /}"
+
+#!/bin/sh
+gpart bootcode -b /boot/pmbr -p /boot/gptboot -i 2 $DISK
+gpart set -a bootonce -i 2 $DISK
+
+IFDEV=$(ifconfig | grep '^[a-z]' | cut -d: -f1 | head -n 1)
+
+# Keyboard layout: https://kostob.de/2021/07/23/freebsd-set-keyboard-layout
+sysrc keymap="br.kbd"
+
+# Network
+dhclient "$IFDEV"
+sysrc ifconfig_"$IFDEV"_name=eth0
+if [ -z "$IP" ] || [ -z "$MASK" ] || [ -z "$GW" ]
+then
+	sysrc ifconfig_eth0=SYNCDHCP
+else
+	sysrc ifconfig_eth0="inet $IP netmask $MASK"
+	sysrc defaultrouter="$GW"
+fi
+
+echo "search $SRC" > /etc/resolv.conf
+echo "nameserver $NS" >> /etc/resolv.conf
+
+sysrc hostname="$HOSTNAME"
+
+# Enabling Services
+sysrc moused_nondefault_enable="NO"
+sysrc sshd_enable=YES
+sysrc dumpdev="AUTO"
+
+# Hardening: https://docs.freebsd.org/en/books/handbook/bsdinstall/#bsdinstall-hardening
+if [ $HARDENING = "true" ]; then
+	sysrc clear_tmp_enable="YES"
+	sysrc syslogd_flags="-ss"
+	sysrc sendmail_enable=NONE
+	{
+	printf 'security.bsd.see_other_uids=0\n'
+	printf 'security.bsd.see_other_gids=0\n'
+	printf 'security.bsd.see_jail_proc=0\n'
+	printf 'security.bsd.unprivileged_read_msgbuf=0\n'
+	printf 'security.bsd.unprivileged_proc_debug=0\n'
+	printf 'kern.randompid=1\n'
+	} >> /etc/sysctl.conf
+fi
+
+# Allow root logins during build. Deactivated upon cleanup
+sed -i '' -e 's/^#PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+echo "$ROOTPASS" | pw usermod root -h 0
+
+ln -s /usr/share/zoneinfo/Brazil/East /etc/localtime
+
+echo "####### Bootstrap the system and Installing Updates #######"
+env PAGER=cat freebsd-update --not-running-from-cron fetch install
+env ASSUME_ALWAYS_YES=YES pkg bootstrap -f | cat
+pkg update -q
+pkg upgrade -y
+
+echo "####### Installing Proxmox agent #######"
+pkg install -y qemu-guest-agent
+sysrc qemu_guest_agent_enable=YES
+service qemu-guest-agent start
+sysrc qemu_guest_agent_flags="-d -v -l /var/log/qemu-ga.log"
+
+sysrc -f /boot/loader.conf autoboot_delay=-1
+
+# Reboot
+reboot

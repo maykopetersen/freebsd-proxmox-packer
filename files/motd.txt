@@ -1,0 +1,11 @@
+# Complete GitHub project: https://github.com/maykopetersen/freebsd-proxmox-packer
+# MOTD - Thanks: https://www.patorjk.com/software/taag
+
+    (                           (    (      
+ )\ )                    (   )\ ) )\ )   
+(()/(  (      (    (   ( )\ (()/((()/(   
+ /(_)) )(    ))\  ))\  )((_) /(_))/(_))  
+(_))_|(()\  /((_)/((_)((_)_ (_)) (_))_   
+| |_   ((_)(_)) (_))   | _ )/ __| |   \  
+| __| | '_|/ -_)/ -_)  | _ \\__ \ | |) | 
+|_|   |_|  \___|\___|  |___/|___/ |___/  
